@@ -3,13 +3,9 @@ package org.ikigaidigital.repository.impl;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "time_deposits")
@@ -27,9 +23,8 @@ class TimeDepositEntity {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
 
-    @OneToMany(mappedBy = "timeDeposit")
-    @OrderBy("id")
-    private List<WithdrawalEntity> withdrawals = new ArrayList<>();
+    @Column(name = "last_interest_run_id")
+    private Integer lastInterestRunId;
 
     protected TimeDepositEntity() {
     }
@@ -54,11 +49,11 @@ class TimeDepositEntity {
         this.days = days;
     }
 
-    void setBalance(BigDecimal balance) {
-        this.balance = balance;
+    void setLastInterestRunId(Integer lastInterestRunId) {
+        this.lastInterestRunId = lastInterestRunId;
     }
 
-    List<WithdrawalEntity> getWithdrawals() {
-        return withdrawals;
+    void setBalance(BigDecimal balance) {
+        this.balance = balance;
     }
 }

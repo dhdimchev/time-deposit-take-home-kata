@@ -12,7 +12,7 @@ there is no safety net.
 ## Scope
 - In: tests for `TimeDepositCalculator` and its use of `TimeDeposit`.
 - Out: any change to production code, any refactoring, validation or bug fixes.
-- Out: withdrawal scenarios. `TimeDeposit` has no withdrawals, and the user decided these are not needed now.
+- Out: withdrawal scenarios. `TimeDeposit` has no withdrawals, and the developer decided these are not needed now.
 - Build change (approved): add `org.junit.jupiter:junit-jupiter-params:5.9.0` (test scope) to `pom.xml`.
   Nothing else changes in the build.
 - Coverage: measured with the JaCoCo Maven plugin invoked from the CLI (no pom change). If JaCoCo cannot

@@ -16,7 +16,11 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @SpringBootTest(
         classes = TimeDepositApplication.class,
         webEnvironment = RANDOM_PORT,
-        properties = "spring.flyway.clean-disabled=false")
+        properties = {
+                "spring.flyway.clean-disabled=false",
+                // Small batches so every integration test exercises multi-batch runs on the 6 seeded deposits.
+                "time-deposits.balance-update.batch-size=2"
+        })
 @Import(TestcontainersConfiguration.class)
 public abstract class PostgresIntegrationTest {
 

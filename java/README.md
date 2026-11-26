@@ -33,21 +33,34 @@ org.ikigaidigital
 ├── domain
 │   ├── model        TimeDeposit, PlanType, Withdrawal, TimeDepositDetails, Money
 │   └── service      TimeDepositCalculator (interest), DepositAgeing (one month passes)
-├── business         TimeDepositService: the use cases (list, update all) and the transaction boundary
+│       └── interest InterestStrategy per plan: Basic, Student, Premium
+├── business         TimeDepositService: the use cases (list all, update all as a resumable run)
 ├── repository
-│   ├── api          TimeDepositRepository: the persistence port
-│   └── impl         JPA adapter, entities and Spring Data repository
+│   ├── api          TimeDepositRepository, InterestRunRepository: the persistence ports
+│   └── impl         JPA/JDBC adapters: batch queries, run tracking, single-query listing
 ├── rest
 │   ├── controller   TimeDepositController, implementing the interface generated from openapi.yaml
 │   └── dto          generated API models and the domain → DTO mapper
-└── application      Spring Boot bootstrap and bean wiring
+└── application      Spring Boot main class
+    └── config       bean wiring and configuration properties
 ```
 
 - **Contract-first API.** `src/main/resources/static/openapi.yaml` is the source of truth. The interface and models
   are generated at build time, and Swagger UI serves the same file.
 - **Schema.** Flyway migrations in `src/main/resources/db/migration` create the tables and load the sample data.
-- **Update flow.** In one transaction, `POST` does: lock and load all deposits (`SELECT … FOR UPDATE`) →
-  `TimeDepositCalculator.updateBalance` → `DepositAgeing.advanceOneMonth` → save.
+- **Extensible interest rules.** Each plan's rule is an `InterestStrategy`. To add a plan, write one strategy class
+  and register it as a bean in `DomainConfiguration`. Neither `TimeDepositCalculator` nor `PlanType` changes.
+  `TimeDepositCalculatorExtensionTest` shows this with a made-up `"gold"` plan.
+- **Update flow (`POST`).** An interest run, processed in batches (default 1000,
+  `time-deposits.balance-update.batch-size`). Each batch is one short transaction:
+  1. lock the next batch (`SELECT … FOR UPDATE SKIP LOCKED`);
+  2. `TimeDepositCalculator.updateBalance`;
+  3. `DepositAgeing.advanceOneMonth`;
+  4. save, marking each deposit with the run id.
+
+  The run is completed once every deposit carries its id.
+- **List flow (`GET`).** One SQL query joins deposits and withdrawals (no N+1 queries), and the rows are grouped
+  into deposits in the persistence adapter.
 
 ## Assumptions and decisions
 These are also justified in code comments where they apply.
@@ -60,9 +73,21 @@ These are also justified in code comments where they apply.
   - Interest is calculated with the deposit's current `days`. Then every deposit ages by **30 days**, following the
     standard 30/360 day-count convention.
   - Calendar months are not possible because the brief's tables store no dates.
-  - Each `POST` therefore applies one more month and is not idempotent.
-- **Concurrent updates are serialized.** A row lock makes an overlapping update wait and then build on the first
-  one's result, so no month of interest is lost.
+  - Each completed `POST` applies one more month.
+- **Updates are idempotent per run and resumable.**
+  - **Crash or error mid-run:** batches already committed keep their month. The run stays open, and the next `POST`
+    finishes it, processing only the remaining deposits. No deposit is paid twice.
+  - **Overlapping `POST`s** join the open run and split its batches, so the month is applied **once**, not once per
+    call.
+  - **What is *not* deduplicated:** a `POST` sent after a run has completed is a new month by design. A client that
+    retries a call which actually succeeded (for example after its own timeout) applies the next month.
+  - Run ids only increase, and a worker only processes deposits whose last run is older than its own, open run. A
+    slow worker that still holds an already-completed run id therefore cannot pay anything again.
+  - `204` is returned only when the run is complete. If another call still holds some deposits, the call waits
+    briefly and rescans; this also picks up the rows if the other call fails.
+  - **Schema addition:** this needs an `interest_runs` table and a `time_deposits.last_interest_run_id` column (Flyway
+    `V3`). They are additions; no column from the brief changes. A partial unique index allows only one open run.
+
 - **Money.**
   - The domain keeps `TimeDeposit`'s `Double` balance.
   - The API and the database use two-decimal amounts (`numeric(19,2)`), converted in one place: `Money.toCents`.
@@ -80,8 +105,8 @@ These are also justified in code comments where they apply.
 | Kind | What | Run by |
 |---|---|---|
 | Characterization | Every rule, boundary and numerical quirk of the original calculator | `mvn test` |
-| Unit | Use cases with an in-memory fake repository; `DepositAgeing`; `Money`; DTO mapping; architecture rules | `mvn test` |
-| Integration (`*IT`) | PostgreSQL Testcontainer: migrations, the persistence adapter, the row lock under concurrency, both endpoints end to end, Swagger | `mvn verify` |
+| Unit | Interest strategies and adding a new plan; use cases with an in-memory fake (batching, crash and resume, rescan); `DepositAgeing`; `Money`; DTO mapping; architecture rules | `mvn test` |
+| Integration (`*IT`) | PostgreSQL Testcontainer, batch size 2: migrations, run tracking (one open run under concurrent callers), `SKIP LOCKED` batches, resuming an interrupted run, overlapping updates paying one month, listing 5,000+ deposits, both endpoints end to end, Swagger | `mvn verify` |
 
 ## Project documentation
 - [docs/api.md](docs/api.md): how to run the service and trigger the endpoints via Swagger.
@@ -89,8 +114,3 @@ These are also justified in code comments where they apply.
 - [docs/ai-assisted-development.md](docs/ai-assisted-development.md): the AI tools, setup, rules, and which parts
   were AI-assisted.
 - [CLAUDE.md](CLAUDE.md) and [.claude/settings.json](.claude/settings.json): the agent configuration used throughout.
-
-## Next step
-The interest rules for each plan type still live in one class. The planned next step is one interest strategy per
-plan type, so new plans or rules can be added without editing the calculator. The characterization suite makes that
-refactor safe.

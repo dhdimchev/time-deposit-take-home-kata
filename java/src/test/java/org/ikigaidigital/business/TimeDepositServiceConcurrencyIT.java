@@ -22,7 +22,7 @@ class TimeDepositServiceConcurrencyIT extends PostgresIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void parallelUpdatesApplyTwoMonths() throws Exception {
+    void overlappingUpdatesPayOneMonth() throws Exception {
         CountDownLatch start = new CountDownLatch(1);
         Runnable update = () -> {
             try {
@@ -39,14 +39,17 @@ class TimeDepositServiceConcurrencyIT extends PostgresIntegrationTest {
         start.countDown();
         CompletableFuture.allOf(first, second).get(30, TimeUnit.SECONDS);
 
-        // Same result as two sequential updates. The first update ages deposits by 30 days, so on the second one
-        // deposit 4 (basic, day 50) earns 1000/1200 -> 0.83 and deposit 6 (premium, day 70) earns 1.00.
+        // Both calls joined the same run, so every deposit got exactly one month (same as a single update).
         List<BigDecimal> balances = jdbcTemplate.queryForList(
                 "select balance from time_deposits order by id", BigDecimal.class);
         assertThat(balances).usingElementComparator(BigDecimal::compareTo).containsExactly(
-                new BigDecimal("1202.00"), new BigDecimal("402.00"), new BigDecimal("242.00"),
-                new BigDecimal("1000.83"), new BigDecimal("400.00"), new BigDecimal("241.00"));
+                new BigDecimal("1201.00"), new BigDecimal("401.00"), new BigDecimal("241.00"),
+                new BigDecimal("1000.00"), new BigDecimal("400.00"), new BigDecimal("240.00"));
         assertThat(jdbcTemplate.queryForList("select days from time_deposits order by id", Integer.class))
-                .containsExactly(105, 160, 120, 80, 460, 100);
+                .containsExactly(75, 130, 90, 50, 430, 70);
+        // Both calls returned only after the run was completed.
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from interest_runs where completed_at is not null", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from interest_runs", Integer.class)).isEqualTo(1);
     }
 }

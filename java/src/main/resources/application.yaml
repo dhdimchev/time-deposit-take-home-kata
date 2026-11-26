@@ -5,9 +5,19 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.batch_size: 100
+        order_updates: true
 
 # Swagger UI shows the hand-written contract (src/main/resources/static/openapi.yaml), not a generated one.
 # springdoc's own api-docs stay enabled because Swagger UI depends on them for its configuration.
 springdoc:
   swagger-ui:
     url: /openapi.yaml
+
+# Balance updates run in batches: one short transaction (and row lock) per batch.
+time-deposits:
+  balance-update:
+    batch-size: 1000
+    rescan-backoff: 100ms

@@ -22,13 +22,13 @@ The calculator was just refactored behind 146 characterization tests (spec 001).
   - unit tests for the use cases;
   - Testcontainers Postgres for the persistence adapter and for end-to-end API tests.
 - `docs/api.md` explains how to run the service and trigger both endpoints via Swagger.
-- Each balance update also ages every deposit by one month (amendment, approved by the user). See "Deposit ageing".
+- Each balance update also ages every deposit by one month (amendment, approved by the developer). See "Deposit ageing".
 
 ## Non-goals
 - Input validation and error handling (out of scope per the brief).
 - Creating, editing or deleting deposits or withdrawals. There is no third endpoint.
 - Applying withdrawals to balances. Withdrawals are read-only history. Stored balances are taken as already net of
-  withdrawals, and the calculator ignores withdrawals (designer's call).
+  withdrawals, and the calculator ignores withdrawals (design decision).
 - Per-plan strategy refactor of the calculator (separate feature).
 - Authentication, pagination, Actuator.
 
@@ -50,10 +50,10 @@ The calculator was just refactored behind 146 characterization tests (spec 001).
 ## Approaches considered
 | Approach | Trade-off | Decision |
 |---|---|---|
-| **A. Contract-first:** hand-written `openapi.yaml`, generated interface and DTOs, JPA + Flyway | One extra build plugin. The contract cannot drift and matches the brief's "OpenAPI Swagger contract". | **Chosen by the user** |
+| **A. Contract-first:** hand-written `openapi.yaml`, generated interface and DTOs, JPA + Flyway | One extra build plugin. The contract cannot drift and matches the brief's "OpenAPI Swagger contract". | **Chosen by the developer** |
 | B. Code-first: hand-written controllers, springdoc generates the contract | Less tooling, but the contract is a by-product of the code | Rejected |
-| Optimistic locking (`version` column) / no locking for concurrent updates | Extra column outside the brief's schema plus conflict handling / silent loss of a month's interest | Rejected; row lock chosen by the user |
-| Spring Data JDBC / `JdbcClient` instead of JPA | Less magic, but more mapping code | Builder may not switch; JPA chosen as the conventional option |
+| Optimistic locking (`version` column) / no locking for concurrent updates | Extra column outside the brief's schema plus conflict handling / silent loss of a month's interest | Rejected; row lock chosen by the developer |
+| Spring Data JDBC / `JdbcClient` instead of JPA | Less magic, but more mapping code | JPA chosen as the conventional option |
 
 ## API contract (summary of `openapi.yaml`)
 - `GET /time-deposits`, operationId `getAllTimeDeposits`.
@@ -96,7 +96,7 @@ The calculator was just refactored behind 146 characterization tests (spec 001).
   - deposits with zero, one and several withdrawals.
 
 ## Architecture
-Follows the package structure in `CLAUDE.md` (decided by the user). The domain classes already live in
+Follows the package structure in `CLAUDE.md` (decided by the developer). The domain classes already live in
 `domain.model` / `domain.service`. All packages below are under `org.ikigaidigital`.
 
 | Package | Contents |
@@ -112,8 +112,8 @@ Follows the package structure in `CLAUDE.md` (decided by the user). The domain c
 
 - Generated code goes into `target/generated-sources`: apiPackage `org.ikigaidigital.rest.controller`, modelPackage
   `org.ikigaidigital.rest.dto`, model name suffix `Dto`.
-  The generator (`spring` generator) runs with `interfaceOnly=true`, `useTags=true` and Jakarta EE / Spring Boot 4 compatible settings; the exact flags are the builder's call.
-- **Concurrent updates (user's decision: row lock).** `findAllForUpdate` reads every deposit with
+  The generator (`spring` generator) runs with `interfaceOnly=true`, `useTags=true` and Jakarta EE / Spring Boot 4 compatible settings; the exact flags are an implementation detail.
+- **Concurrent updates (developer's decision: row lock).** `findAllForUpdate` reads every deposit with
   `SELECT ... FOR UPDATE` (JPA `PESSIMISTIC_WRITE`) inside the `updateAllBalances` transaction. A second overlapping
   call waits for the first to commit, then applies its month on top. No schema change.
 - **Money mapping:** the domain uses `Double`, the database and the API use `BigDecimal` with scale 2.
@@ -180,7 +180,7 @@ Each `POST /time-deposits/balance-updates` represents one month passing.
 6. `mvn verify` is green: the 146 spec-001 tests plus the new unit and integration tests.
 7. `docs/api.md` describes how to start the app and call both endpoints via Swagger UI.
 
-## Left to the builder
+## Implementation details left open
 - Exact seed values (keep the hand-derivable interest).
 - Spring Data query style (JPQL fetch join or `@EntityGraph`).
 - DTO mapper style (hand-written, no MapStruct).

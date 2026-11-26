@@ -29,7 +29,7 @@ Flyway owns the schema and the seed data. Testcontainers Postgres backs every in
   - Domain → DB/API: `BigDecimal.valueOf(double).setScale(2, RoundingMode.HALF_UP)`.
 - **No validation or error handling.** No Mockito: use hand-written fakes.
 - **Test naming:** integration tests are named `*IT` and run under failsafe in `mvn verify`. Unit tests are `*Test` and run under surefire.
-- **Commits:** each task ends with a commit step. Run it only if the user has approved per-task commits; otherwise leave the changes uncommitted.
+- **Commits:** each task ends with a commit step. Run it only if the developer has approved per-task commits; otherwise leave the changes uncommitted.
 
 ## Review Focus
 1. **Empty database:** `GET` returns `[]` and `POST` returns `204` without error. Pinned in Task 4, `TimeDepositApiIT#emptyDatabase…`.
@@ -195,7 +195,7 @@ Flyway owns the schema and the seed data. Testcontainers Postgres backs every in
   - `@RestController TimeDepositController implements TimeDepositsApi`:
     - `getAllTimeDeposits()` → `200` with the mapped list;
     - `updateAllBalances()` → `ResponseEntity.noContent()`.
-  - `TimeDepositDtoMapper.toDto(TimeDepositDetails)`: a static or `@Component` method, the builder's choice.
+  - `TimeDepositDtoMapper.toDto(TimeDepositDetails)`: a static or `@Component` method, an implementation detail.
 
 - [x] **Step 1: Write `TimeDepositDtoMapperTest`.**
   - `mapsAllFiveFieldsAndWithdrawals`:
@@ -233,7 +233,7 @@ Flyway owns the schema and the seed data. Testcontainers Postgres backs every in
   - `springdocGeneratedDocsAreDisabled`: `GET /v3/api-docs` returns 404.
 - [x] **Step 2: Run `mvn verify -Dit.test=SwaggerIT`.** Expected: FAIL on `springdocGeneratedDocsAreDisabled`.
 - [x] **Step 3: Implement** the properties.
-  - If springdoc 3.2.1 also disables Swagger UI when `api-docs` is off, record that as a ruling.
+  - If springdoc 3.2.1 also disables Swagger UI when `api-docs` is off, record that decision in the progress ledger.
   - In that case, keep `api-docs` enabled, drop the 404 assertion, and keep the other two. The controller-derived document still has only the two operations, which `applicationExposesExactlyTwoApiOperations` guards.
 - [x] **Step 4: Write `docs/api.md`:**
   - prerequisites: JDK 17+, Docker;

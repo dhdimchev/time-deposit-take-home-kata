@@ -22,7 +22,12 @@ public class TimeDepositController implements TimeDepositsApi {
 
     @Override
     public ResponseEntity<List<TimeDepositDto>> getAllTimeDeposits() {
-        return ResponseEntity.ok(timeDepositService.getAll().stream().map(TimeDepositDtoMapper::toDto).toList());
+        return ResponseEntity.ok(
+                timeDepositService
+                        .getAll()
+                        .stream()
+                        .map(TimeDepositDtoMapper::toDto)
+                        .toList());
     }
 
     @Override

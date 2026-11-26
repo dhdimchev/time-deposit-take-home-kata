@@ -13,11 +13,11 @@
 ## Global Constraints
 - Never modify `src/main/**`. Never refactor the calculator or `TimeDeposit`.
 - Only build change: `junit-jupiter-params:5.9.0`, test scope. No Spring, Mockito or Testcontainers.
-- No commits. The user commits manually.
+- No commits. The developer commits manually.
 - No withdrawal tests.
 - Monetary assertions use exact `isEqualTo`. No `isCloseTo` or offsets. Signed zero is asserted via `Double.doubleToRawLongBits`.
 - Tests never compute `balance * rate / 12`. Expected interest is a literal. The expected balance is either a literal or `balance + <interest literal>`, because adding in `double` is part of the contract.
-- Characterization tests pass on first run by design. They are not flipped manually to check that they fail (the user asked to skip that).
+- Characterization tests pass on first run by design. They are not flipped manually to check that they fail (the developer asked to skip that).
 - No withdrawal logic or tests at this stage.
 - The existing `updateBalance_Test` is preserved unchanged.
 
@@ -104,4 +104,4 @@ Expected interest per case. The exact binary value comes from `new BigDecimal(do
 ### Task 7: Verify and review
 - [x] `mvn verify` passes. Record the test count.
 - [x] Coverage: `mvn org.jacoco:jacoco-maven-plugin:0.8.14:prepare-agent test org.jacoco:jacoco-maven-plugin:0.8.14:report`, then read `target/site/jacoco/jacoco.csv`. Target: 100% line and branch coverage for `TimeDepositCalculator`. If it fails on JDK 27, use IntelliJ coverage.
-- [x] Self-review for weak assertions, duplication and missing boundaries. Write the summary for the user.
+- [x] Self-review for weak assertions, duplication and missing boundaries. Write the summary for the developer.

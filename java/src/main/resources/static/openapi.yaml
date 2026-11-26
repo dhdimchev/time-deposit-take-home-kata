@@ -32,11 +32,13 @@ paths:
       operationId: updateAllBalances
       summary: Update the balances of all time deposits
       description: >-
-        Applies one month of interest to every time deposit in a single transaction, according to its plan
-        (basic 1%, student 3% for the first year, premium 5% after 45 days; no interest in the first 30 days).
-        Interest uses each deposit's current `days`; afterwards every deposit is aged by one month (30 days,
-        following the 30/360 day-count convention). Each call applies one more month, so the operation is not
-        idempotent.
+        Applies one month of interest to every time deposit, according to its plan (basic 1%, student 3% for the
+        first year, premium 5% after 45 days; no interest in the first 30 days). Interest uses each deposit's
+        current `days`; afterwards every deposit is aged by one month (30 days, following the 30/360 day-count
+        convention). Deposits are processed in batches as one interest run. The run is idempotent and resumable:
+        if a call fails part-way, the next call finishes the same month for the remaining deposits only, and calls
+        that overlap a running update join it instead of applying a second month. Each completed call applies one
+        more month.
       responses:
         '204':
           description: All balances were updated

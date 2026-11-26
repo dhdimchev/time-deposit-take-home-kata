@@ -11,6 +11,8 @@ import java.util.List;
 public interface TimeDepositRepository {
 
     List<TimeDepositDetails> findAllWithWithdrawals();
-    List<TimeDeposit> findAllForUpdate();
-    void saveAll(List<TimeDeposit> deposits);
+
+    List<TimeDeposit> findNextBatchForUpdate(int runId, int afterId, int batchSize);
+
+    void saveBatch(List<TimeDeposit> deposits, int runId);
 }

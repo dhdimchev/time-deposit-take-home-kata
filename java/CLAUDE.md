@@ -17,7 +17,8 @@ Stack: Spring Boot, PostgreSQL, OpenAPI/Swagger contract, Hexagonal Architecture
 ```
 ├── domain                 # framework-free core; no Spring/JPA/Jackson imports
 │   ├── model              # TimeDeposit, PlanType, Withdrawal, other domain types
-│   └── service            # TimeDepositCalculator (domain logic)
+│   └── service            # TimeDepositCalculator, DepositAgeing (domain logic)
+│       └── interest       # one InterestStrategy per plan type (add a plan = add a strategy)
 ├── business               # use-case services, e.g. TimeDepositService (orchestration, transactions)
 ├── repository
 │   ├── api                # persistence ports (interfaces) used by business
@@ -25,7 +26,8 @@ Stack: Spring Boot, PostgreSQL, OpenAPI/Swagger contract, Hexagonal Architecture
 ├── rest
 │   ├── controller         # REST adapter implementing the OpenAPI-generated interfaces
 │   └── dto                # API models (generated from openapi.yaml) and domain <-> DTO mapping
-└── application            # @SpringBootApplication main class and Spring @Configuration (bean wiring)
+└── application            # @SpringBootApplication main class only
+    └── config             # Spring @Configuration classes (bean wiring, configuration properties)
 ```
 
 | Package | Responsibility |
@@ -35,7 +37,8 @@ Stack: Spring Boot, PostgreSQL, OpenAPI/Swagger contract, Hexagonal Architecture
 | `repository.api` | Persistence interfaces (outbound ports). |
 | `repository.impl` | Database implementations and persistence entities (adapters). |
 | `rest` | REST controllers, request and response DTOs (inbound adapters). |
-| `application` | Application bootstrap, configuration and dependency wiring. |
+| `application` | Application bootstrap: the Spring Boot main class only. |
+| `application.config` | Configuration and dependency wiring (`@Configuration`, `@ConfigurationProperties`). |
 
 Dependency rules:
 - `domain` depends on nothing outside itself.

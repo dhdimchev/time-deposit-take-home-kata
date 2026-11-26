@@ -32,12 +32,18 @@ the sample data. The service listens on `http://localhost:8080`.
    The response is `204 No Content`.
 4. Run `GET /time-deposits` again to see the new balances.
 
-Each `POST` represents **one month passing**, so it is not idempotent:
+Each `POST` represents **one month passing**, so repeating a *completed* call applies another month:
 1. interest is applied using each deposit's current `days`;
 2. then every deposit's `days` increases by 30. A month counts as 30 days, following the standard 30/360
    day-count convention.
 
 So the same deposit can start (or stop) earning interest on a later update as it ages.
+
+**Retrying a failed update is safe.** An update runs in batches. If a call fails part-way, call `POST` again: it
+finishes the interrupted month for the remaining deposits only, and nothing is paid twice. Calls that overlap a
+running update join it, so the month is applied once. A `204` means every deposit has its month. A call made after a
+`204` is a new month.
+
 
 ### Sample data and expected results
 | id | planType | days | balance | withdrawals | after 1st update (balance / days) | after 2nd update (balance / days) |

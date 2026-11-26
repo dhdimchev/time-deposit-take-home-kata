@@ -48,6 +48,18 @@ class TimeDepositApiIT extends PostgresIntegrationTest {
     }
 
     @Test
+    void getReturnsLargeDataSetsInIdOrder() {
+        jdbcTemplate.update("insert into time_deposits (id, plan_type, days, balance) "
+                + "select g, 'basic', 31, 100.00 from generate_series(1000, 5999) g");
+
+        TimeDepositDto[] deposits = getAll();
+
+        assertThat(deposits).hasSize(5_006);
+        assertThat(deposits).extracting(TimeDepositDto::getId).isSorted();
+        assertThat(deposits[5_005].getId()).isEqualTo(5_999);
+    }
+
+    @Test
     void getSerializesWithdrawalDatesAsIsoDates() {
         String body = client.get().uri("/time-deposits").retrieve().body(String.class);
 
@@ -76,6 +88,24 @@ class TimeDepositApiIT extends PostgresIntegrationTest {
         TimeDepositDto[] deposits = getAll();
         assertBalances(deposits, "1202.00", "402.00", "242.00", "1000.83", "400.00", "241.00");
         assertThat(deposits).extracting(TimeDepositDto::getDays).containsExactly(105, 160, 120, 80, 460, 100);
+    }
+
+    @Test
+    void resumesAnInterruptedRunWithoutPayingTwice() {
+        // State left by a run that crashed after its first batch (deposits 1 and 2 already processed).
+        int run = jdbcTemplate.queryForObject("insert into interest_runs default values returning id", Integer.class);
+        jdbcTemplate.update("update time_deposits set balance = 1201.00, days = 75, last_interest_run_id = ? where id = 1", run);
+        jdbcTemplate.update("update time_deposits set balance = 401.00, days = 130, last_interest_run_id = ? where id = 2", run);
+
+        updateAll();
+
+        TimeDepositDto[] deposits = getAll();
+        assertBalances(deposits, "1201.00", "401.00", "241.00", "1000.00", "400.00", "240.00");
+        assertThat(deposits).extracting(TimeDepositDto::getDays).containsExactly(75, 130, 90, 50, 430, 70);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from interest_runs", Integer.class))
+                .as("the interrupted run was resumed, not replaced").isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select completed_at is not null from interest_runs where id = ?", Boolean.class, run)).isTrue();
     }
 
     @Test
