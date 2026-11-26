@@ -11,7 +11,7 @@ agent, and which parts of the solution were AI-assisted and why.
 | **superpowers** plugin | A library of workflow skills the agent follows: `brainstorming`, `writing-plans`, `executing-plans`, `test-driven-development`, `systematic-debugging`, `requesting-code-review`, `verification-before-completion`. |
 | **jdtls-lsp** plugin | Connects Claude Code to the Eclipse JDT language server for Java code intelligence. |
 | **IntelliJ IDEA** | The IDE, for reading and editing code by hand and for running and debugging the app. Claude Code runs beside it and sees the file or selection that is open. |
-| **Subagents** (Claude Opus) | Fresh-context reviewers. They check a design before planning ("builder check") and review finished work before it is accepted. |
+| **Subagents** (Claude Opus) | Fresh-context reviewers. They review each design before planning and review finished work before it is accepted. |
 
 ## Setup (reproducible)
 
@@ -39,7 +39,7 @@ To get the same setup on a new machine:
 The working rules come from `CLAUDE.md`:
 
 1. **Spec → plan → implement → verify.**
-   - Every feature starts with a spec in `docs/specs/`, which the human approves.
+   - Every feature starts with a spec in `docs/specs/`, which the developer approves.
    - Then comes a plan in `docs/plans/`, also approved.
    - The agent implements the plan task by task, ticking off steps.
    - It verifies against the spec's acceptance criteria with `mvn verify`.
@@ -48,7 +48,7 @@ The working rules come from `CLAUDE.md`:
    - Each new behaviour started with a failing test.
    - Bugs found in review were reproduced before they were fixed.
 3. **Hexagonal dependency rules.** These are enforced by `ArchitectureTest` rather than left to convention.
-4. **The human stays in charge of decisions and history.**
+4. **The developer stays in charge of decisions and history.**
    - The agent asks when a choice changes what gets built.
    - It records the decisions it makes on its own as rulings, with their cost if wrong.
    - It does not commit unless asked.
@@ -59,14 +59,14 @@ The working rules come from `CLAUDE.md`:
 
 | Area | Who did what | Why AI |
 |---|---|---|
-| **Characterization tests** (`TimeDepositCalculatorTest`, `TimeDepositCalculatorNumericalCharacterizationTest`) | The human wrote the scenario list and the constraints (no production changes, values derived independently). The agent analysed the IEEE-754 behaviour, wrote the tests and reached 100% line and branch coverage. A reviewer agent then found gaps: HALF_UP was never actually pinned, and some rate-expression rewrites went undetected. The agent closed them. | Floating-point and rounding edge cases are tedious and error-prone by hand. The agent could probe exact binary values and run mutation-style checks quickly. |
-| **Calculator refactor** (`TimeDepositCalculator`, `PlanType`) | The human drove the refactor and the naming. The agent explained regressions caught by the tests and, on request, wrote the final version. | Pair-programming against a safety net: the tests, not the agent, decided what was correct. |
-| **REST API and persistence** (spec and plan 002) | The human chose contract-first OpenAPI, PostgreSQL, the package structure, the row lock for concurrent updates and the 30-day month. The agent wrote the spec, plan, code, migrations, tests and `docs/api.md`. | Large, well-specified scaffolding: Spring Boot 4, Flyway, Testcontainers and the OpenAPI generator. With the decisions made up front, implementation was mostly mechanical. |
-| **Debugging** ("updates don't change the values") | The agent reproduced the problem, inspected `pg_stat_activity` and a thread dump, and found an IntelliJ breakpoint holding the row lock. No code change was needed. | Fast evidence gathering across the app, the database and the JVM. |
-| **Architecture check and fixes** | The agent audited the imports against the dependency rules. It moved month ageing into the domain, merged the money rounding into one helper and added missing `ArchitectureTest` rules. The human approved each fix. | A mechanical audit, with the human deciding which trade-offs to keep. |
-| **Commits** | The human decided the commit granularity. The agent staged atomic commits and verified the intermediate snapshot built on its own. | Avoids committing states that were never tested. |
+| **Characterization tests** (`TimeDepositCalculatorTest`, `TimeDepositCalculatorNumericalCharacterizationTest`) | The developer defined the scenario catalogue and the rules: no production changes, expected values derived independently, nothing that hides precision errors. The agent analysed the IEEE-754 behaviour and wrote the tests, reaching 100% line and branch coverage. A reviewer agent then found gaps (HALF_UP was never actually pinned, and some rate-expression rewrites went undetected), which the agent closed. | Floating-point and rounding edge cases are tedious and error-prone by hand. The agent could probe exact binary values and run mutation-style checks quickly. |
+| **Calculator refactor** (`TimeDepositCalculator`, `PlanType`) | The developer led the refactor: the `PlanType` enum with values and rates, the naming, and the move to sequential guard clauses. The agent reviewed each iteration against the characterization suite and implemented the final version to the developer's direction. | Pair-programming against a safety net: the tests, not the agent, decided what was correct. |
+| **REST API and persistence** (spec and plan 002) | The developer decided the architecture: contract-first OpenAPI, PostgreSQL, the hexagonal package structure and its dependency rules, the row lock for concurrent updates, and ageing deposits by 30 days per update (30/360). The agent wrote the spec, plan, code, migrations, tests and `docs/api.md` to those decisions. | Large, well-specified scaffolding: Spring Boot 4, Flyway, Testcontainers and the OpenAPI generator. With the decisions made up front, implementation was mostly mechanical. |
+| **Scalability and extensibility** (spec and plan 003) | The developer set the direction: one strategy per plan type; batched updates that are idempotent and resumable after a mid-run failure; no pagination on `GET`. After review, the developer also rejected a streaming `GET` as over-engineering for this service. The agent designed and implemented it. A reviewer agent found a race in which a stale worker could pay a month twice; it was reproduced with a failing test and fixed. | Concurrency and failure handling across batches, run tracking and `SKIP LOCKED` is where an independent reviewer and test-first fixes pay off most. |
+| **Diagnostics during manual testing** | While the developer was exercising the API from an IntelliJ debug session, the agent traced a stalled update through `pg_stat_activity` and a thread dump. It was a paused debugger thread holding the batch's row lock: the lock was doing its job, and no code change was needed. | Fast evidence gathering across the app, the database and the JVM. |
+| **Architecture check and fixes** | The developer requested an audit of the hexagonal boundaries. The agent checked the imports against the dependency rules and proposed fixes: move month ageing into the domain, merge the money rounding into one helper, and add the missing `ArchitectureTest` rules. The developer approved each fix and kept the trade-offs deliberately (e.g. no inbound-port interfaces for a single adapter). | A mechanical audit, with the developer deciding which trade-offs to keep. |
 
-What stayed human:
+What stayed with the developer:
 - every product and architecture decision;
 - reviewing and approving each spec and plan;
 - manual testing through Swagger and IntelliJ;
@@ -76,5 +76,7 @@ What stayed human:
 - **Lock behaviour before refactoring.** The characterization suite caught every regression in the manual
   refactor.
 - **Independent review catches what the author misses.** It found the unpinned HALF_UP mode, a host-port clash in
-  `compose.yaml`, and a weak spot in the architecture test.
+  `compose.yaml`, a gap in the architecture test, and a stale-worker race in the resumable update.
 - **Write decisions down.** Specs and plans in the repo make the AI's work reviewable and reproducible.
+- **Prefer the simplest design that meets the need.** A streaming `GET` was built, reviewed and then deliberately
+  reverted: the conventional, contract-implementing endpoint with a single query was the better trade-off.

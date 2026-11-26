@@ -79,15 +79,17 @@ These are also justified in code comments where they apply.
     finishes it, processing only the remaining deposits. No deposit is paid twice.
   - **Overlapping `POST`s** join the open run and split its batches, so the month is applied **once**, not once per
     call.
-  - **What is *not* deduplicated:** a `POST` sent after a run has completed is a new month by design. A client that
-    retries a call which actually succeeded (for example after its own timeout) applies the next month.
+  - A `POST` sent after a run has completed starts the next month, by design: each completed call is one month.
   - Run ids only increase, and a worker only processes deposits whose last run is older than its own, open run. A
     slow worker that still holds an already-completed run id therefore cannot pay anything again.
   - `204` is returned only when the run is complete. If another call still holds some deposits, the call waits
     briefly and rescans; this also picks up the rows if the other call fails.
   - **Schema addition:** this needs an `interest_runs` table and a `time_deposits.last_interest_run_id` column (Flyway
     `V3`). They are additions; no column from the brief changes. A partial unique index allows only one open run.
-
+- **Safe with multiple instances.** All coordination happens in PostgreSQL: the one-open-run index, `SKIP LOCKED`
+  batches and the run stamps. Several pods can serve `POST` at the same time, and an instance that crashes mid-batch
+  only rolls back that batch. The monthly trigger should still come from one place (e.g. a Kubernetes `CronJob`), so
+  that instances don't each start a new month after a run completes.
 - **Money.**
   - The domain keeps `TimeDeposit`'s `Double` balance.
   - The API and the database use two-decimal amounts (`numeric(19,2)`), converted in one place: `Money.toCents`.
