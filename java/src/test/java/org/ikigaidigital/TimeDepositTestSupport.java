@@ -1,5 +1,9 @@
 package org.ikigaidigital;
 
+import org.ikigaidigital.domain.model.PlanType;
+import org.ikigaidigital.domain.model.TimeDeposit;
+import org.ikigaidigital.domain.service.TimeDepositCalculator;
+
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;

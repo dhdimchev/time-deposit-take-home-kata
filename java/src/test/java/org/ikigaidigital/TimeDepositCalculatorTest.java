@@ -1,5 +1,8 @@
 package org.ikigaidigital;
 
+import org.ikigaidigital.domain.model.PlanType;
+import org.ikigaidigital.domain.model.TimeDeposit;
+import org.ikigaidigital.domain.service.TimeDepositCalculator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,7 +15,7 @@ import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
-import static org.ikigaidigital.PlanType.*;
+import static org.ikigaidigital.domain.model.PlanType.*;
 import static org.ikigaidigital.TimeDepositTestSupport.*;
 
 /**

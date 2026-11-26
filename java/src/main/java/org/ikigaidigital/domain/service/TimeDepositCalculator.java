@@ -1,4 +1,7 @@
-package org.ikigaidigital;
+package org.ikigaidigital.domain.service;
+
+import org.ikigaidigital.domain.model.PlanType;
+import org.ikigaidigital.domain.model.TimeDeposit;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
