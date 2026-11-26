@@ -13,8 +13,38 @@ Stack: Spring Boot, PostgreSQL, OpenAPI/Swagger contract, Hexagonal Architecture
   Current rules: no interest if `days <= 30`; `basic` 1%/12; `student` 3%/12 while `days < 366`; `premium` 5%/12 when `days > 45`;
   unknown plans get 0; interest rounded HALF_UP to 2 decimals, then added to the `double` balance. Lock this with characterization tests before refactoring.
 
+## Package structure (`org.ikigaidigital`)
+```
+├── domain                 # framework-free core; no Spring/JPA/Jackson imports
+│   ├── model              # TimeDeposit, PlanType, Withdrawal, other domain types
+│   └── service            # TimeDepositCalculator (domain logic)
+├── business               # use-case services, e.g. TimeDepositService (orchestration, transactions)
+├── repository
+│   ├── api                # persistence ports (interfaces) used by business
+│   └── impl               # JPA adapter implementing repository.api: entities, Spring Data repos, mapping
+├── rest
+│   ├── controller         # REST adapter implementing the OpenAPI-generated interfaces
+│   └── dto                # API models (generated from openapi.yaml) and domain <-> DTO mapping
+└── application            # @SpringBootApplication main class and Spring @Configuration (bean wiring)
+```
+
+| Package | Responsibility |
+|---|---|
+| `domain` | Pure business rules, models and calculations. |
+| `business` | Orchestration of domain logic and use cases. |
+| `repository.api` | Persistence interfaces (outbound ports). |
+| `repository.impl` | Database implementations and persistence entities (adapters). |
+| `rest` | REST controllers, request and response DTOs (inbound adapters). |
+| `application` | Application bootstrap, configuration and dependency wiring. |
+
+Dependency rules:
+- `domain` depends on nothing outside itself.
+- `business` depends on `domain` and port interfaces (`repository.api`).
+- Implementations depend on their respective interfaces, never the reverse.
+- `application` wires everything together.
+
 ## Coding rules
-- Hexagonal layout: domain has no framework dependencies; adapters (REST, persistence) depend on ports, never the reverse.
+- Hexagonal layout (see Package structure): domain has no framework dependencies; adapters (REST, persistence) depend on ports, never the reverse.
 - Interest logic must be extensible (e.g. one strategy per plan type), following SOLID.
 - TDD: write the failing test first. Unit tests for domain, Testcontainers for persistence/integration.
 
@@ -35,5 +65,6 @@ Every feature follows: **spec → plan → implement → verify**.
 ```bash
 mvn test                                         # all tests
 mvn test -Dtest='TimeDepositCalculatorTest#updateBalance_Test'  # single test (class or #method)
-mvn verify                                       # full build incl. integration tests
+mvn verify                                       # full build incl. integration tests (*IT, needs Docker)
+mvn spring-boot:run                              # starts Postgres via compose.yaml, Swagger at http://localhost:8080/swagger-ui/index.html
 ```
