@@ -27,6 +27,10 @@ public class TimeDeposit {
         return days;
     }
 
+    public void setDays(int days) {
+        this.days = days;
+    }
+
     public void setBalance(Double balance) {
         this.balance = balance;
     }

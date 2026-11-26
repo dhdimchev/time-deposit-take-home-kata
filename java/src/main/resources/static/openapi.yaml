@@ -1,0 +1,84 @@
+openapi: 3.0.3
+info:
+  title: XA Bank Time Deposit API
+  description: >-
+    Lists time deposits with their withdrawals and applies monthly interest to all of them.
+    This contract is the source of truth: the server interface and models are generated from it.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: TimeDeposits
+    description: Time deposits and their balances
+paths:
+  /time-deposits:
+    get:
+      tags: [TimeDeposits]
+      operationId: getAllTimeDeposits
+      summary: List all time deposits
+      description: Returns every time deposit with its withdrawals, ordered by id.
+      responses:
+        '200':
+          description: All time deposits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimeDeposit'
+  /time-deposits/balance-updates:
+    post:
+      tags: [TimeDeposits]
+      operationId: updateAllBalances
+      summary: Update the balances of all time deposits
+      description: >-
+        Applies one month of interest to every time deposit in a single transaction, according to its plan
+        (basic 1%, student 3% for the first year, premium 5% after 45 days; no interest in the first 30 days).
+        Interest uses each deposit's current `days`; afterwards every deposit is aged by one month (30 days,
+        following the 30/360 day-count convention). Each call applies one more month, so the operation is not
+        idempotent.
+      responses:
+        '204':
+          description: All balances were updated
+components:
+  schemas:
+    TimeDeposit:
+      type: object
+      required: [id, planType, balance, days, withdrawals]
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 1
+        planType:
+          type: string
+          description: Plan type, e.g. basic, student or premium. Unknown plan types earn no interest.
+          example: basic
+        balance:
+          type: number
+          description: Current balance with two decimals.
+          example: 1200.00
+        days:
+          type: integer
+          format: int32
+          description: Age of the deposit in days.
+          example: 45
+        withdrawals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Withdrawal'
+    Withdrawal:
+      type: object
+      required: [id, amount, date]
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 1
+        amount:
+          type: number
+          example: 50.00
+        date:
+          type: string
+          format: date
+          example: '2026-01-15'

@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: time-deposit-kata
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+# Swagger UI shows the hand-written contract (src/main/resources/static/openapi.yaml), not a generated one.
+# springdoc's own api-docs stay enabled because Swagger UI depends on them for its configuration.
+springdoc:
+  swagger-ui:
+    url: /openapi.yaml
